@@ -9,19 +9,19 @@ pub enum TypeError {
 }
 
 type Result<T> = std::result::Result<T, TypeError>;
-struct Environment(HashMap<String, TypeExpr>);
+struct TypeEnvironment(HashMap<String, TypeExpr>);
 
-impl Environment {
-    pub fn new() -> Environment {
-        Environment(HashMap::new())
+impl TypeEnvironment {
+    pub fn new() -> TypeEnvironment {
+        TypeEnvironment(HashMap::new())
     }
 }
 
 pub fn type_check(expression: &AST) -> Result<TypeExpr> {
-    _type_check(&mut Environment::new(), expression)
+    _type_check(&mut TypeEnvironment::new(), expression)
 }
 
-fn _type_check(environment: &mut Environment, expression: &AST) -> Result<TypeExpr> {
+fn _type_check(environment: &mut TypeEnvironment, expression: &AST) -> Result<TypeExpr> {
     Ok(match expression {
         AST::Variable(name) => environment
             .0
