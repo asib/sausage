@@ -47,6 +47,15 @@ fn _type_check(environment: &mut Environment, expression: &AST) -> Result<TypeEx
                 _type_check(environment, expression)?
             }
         }
+        AST::Function { parameter, body } => {
+            environment
+                .0
+                .insert(parameter.name.to_owned(), parameter.typing.clone());
+
+            let body_type = _type_check(environment, body)?;
+
+            TypeExpr::Function(Box::new(parameter.typing.clone()), Box::new(body_type))
+        }
     })
 }
 
@@ -75,6 +84,16 @@ mod tests {
     #[case("true", Ok(crate::ast::TypeExpr::Boolean))]
     #[case("8354584", Ok(crate::ast::TypeExpr::Number))]
     #[case(r#""true""#, Ok(crate::ast::TypeExpr::String))]
+    #[case(
+        r#"\x: string. \y: number. x"#,
+        Ok(crate::ast::TypeExpr::Function(
+            Box::new(crate::ast::TypeExpr::String),
+            Box::new(crate::ast::TypeExpr::Function(
+                Box::new(crate::ast::TypeExpr::Number),
+                Box::new(crate::ast::TypeExpr::String)
+            ))
+        ))
+    )]
     fn test_expr(#[case] input: &str, #[case] expected_result: Result<crate::ast::TypeExpr>) {
         let (_, program) = parse(input).unwrap();
 

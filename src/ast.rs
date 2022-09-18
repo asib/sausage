@@ -9,6 +9,7 @@ pub enum TypeExpr {
     Number,
     String,
     Boolean,
+    Function(Box<TypeExpr>, Box<TypeExpr>),
 }
 
 #[derive(PartialEq, Debug)]
@@ -27,5 +28,9 @@ pub enum AST<'a> {
         variable_declaration: Box<VariableDeclaration<'a>>,
         variable_expression: Box<AST<'a>>,
         expression: Box<AST<'a>>,
+    },
+    Function {
+        parameter: Box<VariableDeclaration<'a>>,
+        body: Box<AST<'a>>,
     },
 }

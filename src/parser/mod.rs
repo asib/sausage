@@ -10,12 +10,27 @@ mod combinator;
 
 type ParseResult<'a, T> = IResult<&'a str, T>;
 
-fn parse_type_expression(input: &str) -> ParseResult<TypeExpr> {
+fn parse_function_type(input: &str) -> ParseResult<TypeExpr> {
+    let (input, parameter_type) = parse_ground_type_expression(input)?;
+    let (input, _) = tag(" -> ")(input)?;
+    let (input, body_type) = parse_type_expression(input)?;
+
+    Ok((
+        input,
+        TypeExpr::Function(Box::new(parameter_type), Box::new(body_type)),
+    ))
+}
+
+fn parse_ground_type_expression(input: &str) -> ParseResult<TypeExpr> {
     alt((
         value(TypeExpr::Boolean, tag("boolean")),
         value(TypeExpr::String, tag("string")),
         value(TypeExpr::Number, tag("number")),
     ))(input)
+}
+
+fn parse_type_expression(input: &str) -> ParseResult<TypeExpr> {
+    alt((parse_function_type, parse_ground_type_expression))(input)
 }
 
 fn parse_variable_declaration(input: &str) -> ParseResult<VariableDeclaration> {
@@ -50,19 +65,37 @@ fn parse_let_expr(input: &str) -> ParseResult<AST> {
     ))
 }
 
+fn parse_function(input: &str) -> ParseResult<AST> {
+    let (input, _) = tag("\\")(input)?;
+    let (input, variable) = parse_variable_declaration(input)?;
+    let (input, _) = tag(". ")(input)?;
+    let (input, function_body) = parse(input)?;
+
+    Ok((
+        input,
+        AST::Function {
+            parameter: Box::new(variable),
+            body: Box::new(function_body),
+        },
+    ))
+}
+
 pub fn parse(input: &str) -> IResult<&str, AST> {
     alt((
         combinator::boolean,
         combinator::string,
         combinator::number,
         parse_let_expr,
+        parse_function,
         map(combinator::identifier, AST::Variable),
     ))(input)
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{parse_let_expr, TypeExpr, VariableDeclaration, AST};
+    use super::{
+        parse_function, parse_let_expr, parse_type_expression, TypeExpr, VariableDeclaration, AST,
+    };
     use rstest::rstest;
 
     #[rstest]
@@ -72,6 +105,13 @@ mod tests {
         TypeExpr::String,
         AST::StringLiteral("bla".to_owned()),
         AST::Variable("x"),
+    )]
+    #[case(
+        r#"let x: string = "bla" in let y: number = 123 in y"#,
+        "x",
+        TypeExpr::String,
+        AST::StringLiteral("bla".to_owned()),
+        AST::Let { variable_declaration: Box::new(VariableDeclaration { name: "y", typing: TypeExpr::Number }), variable_expression: Box::new(AST::NumberLiteral("123".to_owned())), expression:Box::new(AST::Variable("y")) },
     )]
     fn test_let_expr(
         #[case] input: &str,
@@ -96,5 +136,35 @@ mod tests {
                 }
             ))
         )
+    }
+
+    #[rstest]
+    #[case(r#"\x: number. x"#, AST::Function { parameter: Box::new(VariableDeclaration { name: "x", typing: TypeExpr::Number }), body: Box::new(AST::Variable("x")) })]
+    #[case(r#"\x: number. \y: string. x"#, AST::Function { parameter: Box::new(VariableDeclaration { name: "x", typing: TypeExpr::Number }), body: Box::new(AST::Function { parameter: Box::new(VariableDeclaration { name: "y", typing: TypeExpr::String }), body: Box::new(AST::Variable("x")) }) })]
+    fn test_function<'a>(#[case] input: &str, #[case] expected_result: AST<'a>) {
+        let result = parse_function(input);
+
+        assert_eq!(result, Ok(("", expected_result)));
+    }
+
+    #[rstest]
+    #[case("boolean", TypeExpr::Boolean)]
+    #[case("string", TypeExpr::String)]
+    #[case("number", TypeExpr::Number)]
+    #[case(
+        "string -> number",
+        TypeExpr::Function(Box::new(TypeExpr::String), Box::new(TypeExpr::Number))
+    )]
+    #[case(
+        "string -> number -> boolean",
+        TypeExpr::Function(
+            Box::new(TypeExpr::String),
+            Box::new(TypeExpr::Function(Box::new(TypeExpr::Number), Box::new(TypeExpr::Boolean)))
+        )
+    )]
+    fn test_type_expression(#[case] input: &str, #[case] expected_result: TypeExpr) {
+        let result = parse_type_expression(input);
+
+        assert_eq!(result, Ok(("", expected_result)));
     }
 }

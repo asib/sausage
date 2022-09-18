@@ -8,9 +8,11 @@ mod parser;
 mod type_checker;
 
 fn main() {
-    if let Ok((_, program)) = parse("let x: string = TRUE in x") {
-        if let Err(err) = type_check(&program) {
-            panic!("{:?}", err);
+    if let Ok((_, program)) =
+        parse(r#"let x: boolean -> number = \q: boolean. 123 in \y: string. x"#)
+    {
+        if let Ok(typing) = type_check(&program) {
+            println!("{:?}", typing);
         }
         println!("{:?}", program);
     }
