@@ -80,7 +80,7 @@ fn parse_function(input: &str) -> ParseResult<AST> {
     ))
 }
 
-pub fn parse(input: &str) -> IResult<&str, AST> {
+pub fn parse(input: &str) -> ParseResult<AST> {
     alt((
         combinator::boolean,
         combinator::string,
