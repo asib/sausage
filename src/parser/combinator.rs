@@ -1,15 +1,11 @@
 use super::{ParseResult, TBoolean, AST};
 use nom::{
     branch::alt,
-    bytes::complete::{escaped, escaped_transform, is_not, tag, tag_no_case, take_while1},
-    character::{
-        complete::{alpha1, alphanumeric0, alphanumeric1, char, digit1},
-        is_digit,
-    },
+    bytes::complete::{escaped_transform, is_not, tag, tag_no_case},
+    character::complete::{alpha1, alphanumeric1, char, digit1},
     combinator::{map, recognize, value},
-    multi::{many0, many1},
+    multi::many0,
     sequence::{delimited, pair},
-    IResult,
 };
 
 fn boolean_true(input: &str) -> ParseResult<TBoolean> {

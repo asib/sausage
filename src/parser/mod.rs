@@ -18,14 +18,14 @@ fn parse_type_expression(input: &str) -> ParseResult<TypeExpr> {
     ))(input)
 }
 
-fn parse_variable_declaration(input: &str) -> ParseResult<AST> {
+fn parse_variable_declaration(input: &str) -> ParseResult<VariableDeclaration> {
     let (input, ident) = combinator::identifier(input)?;
     let (input, _) = tag(": ")(input)?;
     let (input, type_expr) = parse_type_expression(input)?;
 
     Ok((
         input,
-        AST::VariableDeclaration {
+        VariableDeclaration {
             name: ident,
             typing: type_expr,
         },
@@ -55,7 +55,6 @@ pub fn parse(input: &str) -> IResult<&str, AST> {
         combinator::boolean,
         combinator::string,
         combinator::number,
-        parse_variable_declaration,
         parse_let_expr,
         map(combinator::identifier, AST::Variable),
     ))(input)
@@ -63,9 +62,7 @@ pub fn parse(input: &str) -> IResult<&str, AST> {
 
 #[cfg(test)]
 mod tests {
-    use std::assert_matches::assert_matches;
-
-    use super::{parse, parse_let_expr, TypeExpr, AST};
+    use super::{parse_let_expr, TypeExpr, VariableDeclaration, AST};
     use rstest::rstest;
 
     #[rstest]
@@ -90,7 +87,7 @@ mod tests {
             Ok((
                 "",
                 AST::Let {
-                    variable_declaration: Box::new(AST::VariableDeclaration {
+                    variable_declaration: Box::new(VariableDeclaration {
                         name: variable_name,
                         typing: variable_type
                     }),
@@ -99,12 +96,5 @@ mod tests {
                 }
             ))
         )
-    }
-
-    #[test]
-    fn parse_other() {
-        let result = parse("something");
-
-        assert_matches!(result, Err(_))
     }
 }

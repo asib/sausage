@@ -12,17 +12,19 @@ pub enum TypeExpr {
 }
 
 #[derive(PartialEq, Debug)]
+pub struct VariableDeclaration<'a> {
+    pub name: &'a str,
+    pub typing: TypeExpr,
+}
+
+#[derive(PartialEq, Debug)]
 pub enum AST<'a> {
-    VariableDeclaration {
-        name: &'a str,
-        typing: TypeExpr,
-    },
     Variable(&'a str),
     BooleanLiteral(TBoolean),
     StringLiteral(String),
     NumberLiteral(String),
     Let {
-        variable_declaration: Box<AST<'a>>,
+        variable_declaration: Box<VariableDeclaration<'a>>,
         variable_expression: Box<AST<'a>>,
         expression: Box<AST<'a>>,
     },
