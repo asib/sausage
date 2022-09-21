@@ -15,7 +15,17 @@ pub enum TypeExpr {
 #[derive(PartialEq, Debug)]
 pub struct VariableDeclaration<'a> {
     pub name: &'a str,
-    pub typing: TypeExpr,
+    pub typing: Option<TypeExpr>,
+}
+
+impl<'a> VariableDeclaration<'a> {
+    pub fn typing_to_string(&self) -> String {
+        if let Some(ty) = &self.typing {
+            format!("{:?}", ty)
+        } else {
+            format!("None")
+        }
+    }
 }
 
 #[derive(PartialEq, Debug)]

@@ -37,24 +37,29 @@ fn _type_check(environment: &mut TypeEnvironment, expression: &AST) -> Result<Ty
             expression,
         } => {
             let variable_type = _type_check(environment, &variable_expression)?;
-            if variable_type != variable_declaration.typing {
-                Err(TypeError::BadLet(format!("type of variable <{:?}: {:?}> in let expression did not match type of expression {:?}", variable_declaration.name, variable_declaration.typing, variable_type)))?
-            } else {
-                environment
-                    .0
-                    .insert(variable_declaration.name.to_owned(), variable_type);
 
-                _type_check(environment, expression)?
-            }
+            match &variable_declaration.typing {
+                Some(ty) if ty != &variable_type => return Err(TypeError::BadLet(format!("type of variable <{}: {}> in let expression did not match type of expression {:?}", variable_declaration.name, variable_declaration.typing_to_string(), variable_type))),
+                _ => ()
+            };
+
+            environment
+                .0
+                .insert(variable_declaration.name.to_owned(), variable_type);
+
+            _type_check(environment, expression)?
         }
         AST::Function { parameter, body } => {
             environment
                 .0
-                .insert(parameter.name.to_owned(), parameter.typing.clone());
+                .insert(parameter.name.to_owned(), parameter.typing.clone().unwrap());
 
             let body_type = _type_check(environment, body)?;
 
-            TypeExpr::Function(Box::new(parameter.typing.clone()), Box::new(body_type))
+            TypeExpr::Function(
+                Box::new(parameter.typing.clone().unwrap()),
+                Box::new(body_type),
+            )
         }
     })
 }
@@ -68,10 +73,12 @@ mod tests {
     use super::{type_check, TypeError};
 
     #[rstest]
-    #[case(r#"let x: number = true in 123"#, Err(TypeError::BadLet(r#"type of variable <"x": Number> in let expression did not match type of expression Boolean"#.to_owned())))]
+    #[case(r#"let x: number = true in 123"#, Err(TypeError::BadLet(r#"type of variable <x: Number> in let expression did not match type of expression Boolean"#.to_owned())))]
     #[case(r#"let x: number = 123 in x"#, Ok(crate::ast::TypeExpr::Number))]
+    #[case(r#"let x = 123 in x"#, Ok(crate::ast::TypeExpr::Number))]
     #[case(r#"let x: number = 123 in "test""#, Ok(crate::ast::TypeExpr::String))]
     #[case(r#"let x: number = 123 in false"#, Ok(crate::ast::TypeExpr::Boolean))]
+    #[case(r#"let x = 123 in false"#, Ok(crate::ast::TypeExpr::Boolean))]
     #[case(
         r#"let x: number = 123 in let y: boolean = false in x"#,
         Ok(crate::ast::TypeExpr::Number)
@@ -80,6 +87,11 @@ mod tests {
         r#"let x: number = 123 in let y: boolean = false in y"#,
         Ok(crate::ast::TypeExpr::Boolean)
     )]
+    #[case(
+        r#"let x: boolean = let y: boolean = false in y in x"#,
+        Ok(crate::ast::TypeExpr::Boolean)
+    )]
+    #[case(r#"let x = let y = 123 in y in x"#, Ok(crate::ast::TypeExpr::Number))]
     #[case(r#"y: string"#, Err(TypeError::UndefinedVariable("y".to_owned())))]
     #[case("true", Ok(crate::ast::TypeExpr::Boolean))]
     #[case("8354584", Ok(crate::ast::TypeExpr::Number))]

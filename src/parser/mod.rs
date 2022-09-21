@@ -33,7 +33,7 @@ fn parse_type_expression(input: &str) -> ParseResult<TypeExpr> {
     alt((parse_function_type, parse_ground_type_expression))(input)
 }
 
-fn parse_variable_declaration(input: &str) -> ParseResult<VariableDeclaration> {
+fn parse_variable_declaration_with_type(input: &str) -> ParseResult<VariableDeclaration> {
     let (input, ident) = combinator::identifier(input)?;
     let (input, _) = tag(": ")(input)?;
     let (input, type_expr) = parse_type_expression(input)?;
@@ -42,14 +42,20 @@ fn parse_variable_declaration(input: &str) -> ParseResult<VariableDeclaration> {
         input,
         VariableDeclaration {
             name: ident,
-            typing: type_expr,
+            typing: Some(type_expr),
         },
     ))
 }
 
 fn parse_let_expr(input: &str) -> ParseResult<AST> {
     let (input, _) = tag("let ")(input)?;
-    let (input, variable) = parse_variable_declaration(input)?;
+    let (input, variable) = alt((
+        parse_variable_declaration_with_type,
+        map(combinator::identifier, |ident| VariableDeclaration {
+            name: ident,
+            typing: None,
+        }),
+    ))(input)?;
     let (input, _) = tag(" = ")(input)?;
     let (input, variable_expr) = parse(input)?;
     let (input, _) = tag(" in ")(input)?;
@@ -67,7 +73,7 @@ fn parse_let_expr(input: &str) -> ParseResult<AST> {
 
 fn parse_function(input: &str) -> ParseResult<AST> {
     let (input, _) = tag("\\")(input)?;
-    let (input, variable) = parse_variable_declaration(input)?;
+    let (input, variable) = parse_variable_declaration_with_type(input)?;
     let (input, _) = tag(". ")(input)?;
     let (input, function_body) = parse(input)?;
 
@@ -111,7 +117,7 @@ mod tests {
         "x",
         TypeExpr::String,
         AST::StringLiteral("bla".to_owned()),
-        AST::Let { variable_declaration: Box::new(VariableDeclaration { name: "y", typing: TypeExpr::Number }), variable_expression: Box::new(AST::NumberLiteral("123".to_owned())), expression:Box::new(AST::Variable("y")) },
+        AST::Let { variable_declaration: Box::new(VariableDeclaration { name: "y", typing: Some(TypeExpr::Number) }), variable_expression: Box::new(AST::NumberLiteral("123".to_owned())), expression:Box::new(AST::Variable("y")) },
     )]
     fn test_let_expr(
         #[case] input: &str,
@@ -129,7 +135,7 @@ mod tests {
                 AST::Let {
                     variable_declaration: Box::new(VariableDeclaration {
                         name: variable_name,
-                        typing: variable_type
+                        typing: Some(variable_type)
                     }),
                     variable_expression: Box::new(variable_expression),
                     expression: Box::new(expression),
@@ -139,8 +145,16 @@ mod tests {
     }
 
     #[rstest]
-    #[case(r#"\x: number. x"#, AST::Function { parameter: Box::new(VariableDeclaration { name: "x", typing: TypeExpr::Number }), body: Box::new(AST::Variable("x")) })]
-    #[case(r#"\x: number. \y: string. x"#, AST::Function { parameter: Box::new(VariableDeclaration { name: "x", typing: TypeExpr::Number }), body: Box::new(AST::Function { parameter: Box::new(VariableDeclaration { name: "y", typing: TypeExpr::String }), body: Box::new(AST::Variable("x")) }) })]
+    #[case("let x = 5 in x", AST::Let { variable_declaration: Box::new(VariableDeclaration { name: "x", typing: None }), variable_expression: Box::new(AST::NumberLiteral("5".to_owned())), expression: Box::new(AST::Variable("x")) })]
+    fn test_let_expr_without_type(#[case] input: &str, #[case] expected_result: AST) {
+        let result = parse_let_expr(input);
+
+        assert_eq!(result, Ok(("", expected_result)));
+    }
+
+    #[rstest]
+    #[case(r#"\x: number. x"#, AST::Function { parameter: Box::new(VariableDeclaration { name: "x", typing: Some(TypeExpr::Number) }), body: Box::new(AST::Variable("x")) })]
+    #[case(r#"\x: number. \y: string. x"#, AST::Function { parameter: Box::new(VariableDeclaration { name: "x", typing: Some(TypeExpr::Number) }), body: Box::new(AST::Function { parameter: Box::new(VariableDeclaration { name: "y", typing: Some(TypeExpr::String) }), body: Box::new(AST::Variable("x")) }) })]
     fn test_function<'a>(#[case] input: &str, #[case] expected_result: AST<'a>) {
         let result = parse_function(input);
 

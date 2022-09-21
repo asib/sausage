@@ -1,6 +1,4 @@
 #![feature(assert_matches)]
-use std::collections::HashMap;
-
 use crate::{parser::parse, type_checker::type_check};
 
 mod ast;
